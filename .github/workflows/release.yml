@@ -1,12 +1,7 @@
-name: Auto Release Offsets
+name: Auto Release C++ Engine Dump
 
 on:
-  push:
-    paths:
-      - 'Dumps/Offsets.hpp'
-      - 'Offsets.hpp'
-    branches:
-      - main
+  workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
 
 jobs:
   release:
@@ -18,10 +13,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract version and stats
+      - name: Extract C++ Engine Structure and Stats
         id: info
         run: |
-          # Prefer Dumps/Offsets.hpp, fall back to root Offsets.hpp
           if [ -f "Dumps/Offsets.hpp" ]; then
             FILE="Dumps/Offsets.hpp"
           else
@@ -30,34 +24,31 @@ jobs:
 
           echo "Using file: $FILE"
 
-          # Extract Roblox version string
+          # 1. Extract Roblox version string
           VERSION=$(grep -oP 'version-[a-f0-9]+' "$FILE" | head -n 1)
           if [ -z "$VERSION" ]; then
             VERSION="v$(date +'%Y.%m.%d-%H%M')"
           fi
 
-          # Extract offset count from header comment
-          OFFSET_COUNT=$(grep -oP 'Offsets found\s+\K\d+' "$FILE" | head -n 1)
-          if [ -z "$OFFSET_COUNT" ]; then
-            # Fallback: count hex values
-            OFFSET_COUNT=$(grep -oP '0x[0-9A-Fa-f]+' "$FILE" | wc -l)
-          fi
+          # 2. Count detected C++ namespaces or structural blocks
+          NAMESPACE_COUNT=$(grep -c 'namespace' "$FILE" || echo "0")
 
-          # Extract dump date
-          DUMP_DATE=$(grep -oP 'Date\s+\K[\d\-]+ [\d:]+' "$FILE" | head -n 1)
-          if [ -z "$DUMP_DATE" ]; then
-            DUMP_DATE=$(date +'%Y-%m-%d %H:%M UTC')
-          fi
+          # 3. Count total internal C++ functions/variables defined in the file
+          CPP_ELEMENT_COUNT=$(grep -E '(uintptr_t|void|int|unsigned|struct|class)' "$FILE" | wc -l)
 
+          # 4. Extract specific C++ names/keywords to show in the release notes
+          CPP_SAMPLES=$(grep -E '(uintptr_t|void|int)' "$FILE" | head -n 20 | sed 's/^[ \t]*//' | tr '\n' ',' | sed 's/,$//')
+
+          # 5. Get file size metrics
           FILE_SIZE=$(du -sh "$FILE" | cut -f1)
 
-          echo "VERSION=$VERSION"       >> $GITHUB_OUTPUT
-          echo "OFFSET_COUNT=$OFFSET_COUNT" >> $GITHUB_OUTPUT
-          echo "DUMP_DATE=$DUMP_DATE"   >> $GITHUB_OUTPUT
-          echo "FILE=$FILE"             >> $GITHUB_OUTPUT
-          echo "FILE_SIZE=$FILE_SIZE"   >> $GITHUB_OUTPUT
-
-          echo "Detected: $VERSION | Offsets: $OFFSET_COUNT | Date: $DUMP_DATE"
+          # Output variables to GitHub environment
+          echo "VERSION=$VERSION"               >> $GITHUB_OUTPUT
+          echo "NAMESPACE_COUNT=$NAMESPACE_COUNT" >> $GITHUB_OUTPUT
+          echo "CPP_ELEMENT_COUNT=$CPP_ELEMENT_COUNT" >> $GITHUB_OUTPUT
+          echo "CPP_SAMPLES=$CPP_SAMPLES"       >> $GITHUB_OUTPUT
+          echo "FILE=$FILE"                     >> $GITHUB_OUTPUT
+          echo "FILE_SIZE=$FILE_SIZE"           >> $GITHUB_OUTPUT
 
       - name: Delete existing release (if any)
         run: |
@@ -70,27 +61,26 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.info.outputs.VERSION }}
-          name: "Roblox Offsets — ${{ steps.info.outputs.VERSION }}"
+          name: "Roblox C++ Engine Dump — ${{ steps.info.outputs.VERSION }}"
           body: |
-            ## Orion Dumper — Automatic Offset Release
+            ## Automated C++ Engine Architecture Release
 
-            | Field | Value |
-            |-------|-------|
-            | **Roblox Version** | `${{ steps.info.outputs.VERSION }}` |
-            | **Offsets Found** | `${{ steps.info.outputs.OFFSET_COUNT }}` |
-            | **File Size** | `${{ steps.info.outputs.FILE_SIZE }}` |
-            | **Dump Date** | ${{ steps.info.outputs.DUMP_DATE }} |
-            | **Commit** | [`${{ github.sha }}`](${{ github.event.compare }}) |
+            | Metadata Field | Value |
+            |----------------|-------|
+            | **Roblox Target Version** | `${{ steps.info.outputs.VERSION }}` |
+            | **Engine Namespaces** | `${{ steps.info.outputs.NAMESPACE_COUNT }}` |
+            | **Total C++ Definitions** | `${{ steps.info.outputs.CPP_ELEMENT_COUNT }}` |
+            | **Header File Size** | `${{ steps.info.outputs.FILE_SIZE }}` |
+            | **Release Trigger** | Manual Workflow Run |
 
-            ### Usage
+            ### Sample C++ Identifiers Found
             ```cpp
-            #include "Offsets.hpp"
-            // All offsets are relative to the Roblox module base.
-            // Use REBASE(offset) to get absolute addresses at runtime.
-            uintptr_t luaState = REBASE(Offsets::LuaState);
+            // Samples of extracted engine elements:
+            // \${{ steps.info.outputs.CPP_SAMPLES }}
             ```
 
-            > **Auto-generated** by [Ghidra-Roblox-Internal-Dumper](https://github.com/${{ github.repository }})
+            ### Architecture Usage
+            Review the attached header file to inspect exposed internal namespaces, engine class mappings, and runtime execution definitions.
           files: |
             ${{ steps.info.outputs.FILE }}
           draft: false
