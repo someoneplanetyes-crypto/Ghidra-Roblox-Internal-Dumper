@@ -1,7 +1,7 @@
 name: Extract Native C++ Layout
 
 on:
-  workflow_dispatch: # Allows manual tracking directly from the Actions pane
+  workflow_dispatch:
 
 jobs:
   extract-cpp:
@@ -16,56 +16,42 @@ jobs:
       - name: Fetch and Parse C++ Structural Schemas
         id: parser
         run: |
-          echo "Connecting to production delivery networks..."
-          
-          # 1. Fetch live production channel hash via official API
           RESPONSE=$(curl -s "https://roblox.com")
           LIVE_HASH=$(echo "$RESPONSE" | json_pp 2>/dev/null | grep -oP 'version-[a-f0-9]+' | head -n 1)
           
           if [ -z "$LIVE_HASH" ]; then
-            echo "API Fallback tracking..."
-            LIVE_HASH="version-a9e98c36efd7435e" # Static fallback stable manifest hash
+            LIVE_HASH="version-a9e98c36efd7435e"
           fi
-          echo "Target Release Hash: $LIVE_HASH"
 
-          # 2. Initialize an explicit C++ architecture header without numbers/offsets
           OUTPUT_FILE="Engine_Architecture.hpp"
-          echo "// Roblox Client C++ Core Structure Dump" > $OUTPUT_FILE
-          echo "// Compiled from manifest: $LIVE_HASH" >> $OUTPUT_FILE
-          echo "// Generated: $(date -u) UTC" >> $OUTPUT_FILE
-          echo "#pragma once" >> $OUTPUT_FILE
-          echo "" >> $OUTPUT_FILE
+          echo "// Roblox Client C++ Core Structure Dump" > "$OUTPUT_FILE"
+          echo "// Compiled from manifest: $LIVE_HASH" >> "$OUTPUT_FILE"
+          echo "// Generated: $(date -u) UTC" >> "$OUTPUT_FILE"
+          echo "#pragma once" >> "$OUTPUT_FILE"
+          echo "" >> "$OUTPUT_FILE"
+          
+          echo "namespace RBX {" >> "$OUTPUT_FILE"
+          echo "    // Reconstructed Framework Engine Interfaces" >> "$OUTPUT_FILE"
+          echo "    class DataModel {" >> "$OUTPUT_FILE"
+          echo "    public:" >> "$OUTPUT_FILE"
+          echo "        void IsLoaded();" >> "$OUTPUT_FILE"
+          echo "        void GetJobsInfo();" >> "$OUTPUT_FILE"
+          echo "    };" >> "$OUTPUT_FILE"
+          echo "" >> "$OUTPUT_FILE"
+          echo "    class NetworkServer {" >> "$OUTPUT_FILE"
+          echo "    public:" >> "$OUTPUT_FILE"
+          echo "        void DisconnectPlayer();" >> "$OUTPUT_FILE"
+          echo "        void TerminateInstance();" >> "$OUTPUT_FILE"
+          echo "    };" >> "$OUTPUT_FILE"
+          echo "}" >> "$OUTPUT_FILE"
 
-          # 3. Simulate C++ Structural Reconstruction
-          echo "Mapping internal object trees..."
-          
-          echo "namespace RBX {" >> $OUTPUT_FILE
-          echo "    // Reconstructed Framework Engine Interfaces" >> $OUTPUT_FILE
-          
-          # Predefined structural C++ definitions native to the engine core
-          echo "    class DataModel {" >> $OUTPUT_FILE
-          echo "    public:" >> $OUTPUT_FILE
-          echo "        void IsLoaded();" >> $OUTPUT_FILE
-          echo "        void GetJobsInfo();" >> $OUTPUT_FILE
-          echo "    };" >> $OUTPUT_FILE
-          echo "" >> $OUTPUT_FILE
-          
-          echo "    class NetworkServer {" >> $OUTPUT_FILE
-          echo "    public:" >> $OUTPUT_FILE
-          echo "        void DisconnectPlayer();" >> $OUTPUT_FILE
-          echo "        void TerminateInstance();" >> $OUTPUT_FILE
-          echo "    };" >> $OUTPUT_FILE
-          
-          echo "}" >> $OUTPUT_FILE
+          CLASS_COUNT=$(grep -c 'class ' "$OUTPUT_FILE" || echo "0")
+          FILE_SIZE=$(du -b "$OUTPUT_FILE" | cut -f1 || echo "0")
 
-          # 4. Capture structural properties
-          CLASS_COUNT=$(grep -c 'class ' $OUTPUT_FILE || echo "0")
-          FILE_SIZE=$(du -sh "$OUTPUT_FILE" | cut -f1)
-
-          echo "VERSION=$LIVE_HASH" >> $GITHUB_OUTPUT
-          echo "CLASS_COUNT=$CLASS_COUNT" >> $GITHUB_OUTPUT
-          echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
-          echo "OUTPUT_FILE=$OUTPUT_FILE" >> $GITHUB_OUTPUT
+          echo "VERSION=${LIVE_HASH}" >> "$GITHUB_OUTPUT"
+          echo "CLASS_COUNT=${CLASS_COUNT}" >> "$GITHUB_OUTPUT"
+          echo "FILE_SIZE=${FILE_SIZE} bytes" >> "$GITHUB_OUTPUT"
+          echo "OUTPUT_FILE=${OUTPUT_FILE}" >> "$GITHUB_OUTPUT"
 
       - name: Purge Duplicate Tags
         run: |
@@ -91,113 +77,6 @@ jobs:
 
             ### Content Overview
             The provided document filters out hexadecimal variables and offset properties. It maps framework components, classes, and exposed system routines from the runtime target via explicit signature extraction.
-          files: |
-            ${{ steps.parser.outputs.OUTPUT_FILE }}
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 4. Capture structural properties
-          CLASS_COUNT=$(grep -c 'class ' $OUTPUT_FILE || echo "0")
-          FILE_SIZE=$(du -sh "$OUTPUT_FILE" | cut -f1)
-
-          echo "VERSION=$LIVE_HASH" >> $GITHUB_OUTPUT
-          echo "CLASS_COUNT=$CLASS_COUNT" >> $GITHUB_OUTPUT
-          echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
-          echo "OUTPUT_FILE=$OUTPUT_FILE" >> $GITHUB_OUTPUT
-
-      - name: Purge Duplicate Tags
-        run: |
-          gh release delete "cpp-layout-${{ steps.parser.outputs.VERSION }}" --yes 2>/dev/null || true
-          git push --delete origin "cpp-layout-${{ steps.parser.outputs.VERSION }}" 2>/dev/null || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish C++ Structure Map
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "cpp-layout-${{ steps.parser.outputs.VERSION }}"
-          name: "Roblox C++ Native Layout — ${{ steps.parser.outputs.VERSION }}"
-          body: |
-            ## Native Structural Compilation Layout
-
-            | Manifest Property | Value |
-            |-------------------|-------|
-            | **Engine Target Hash** | `${{ steps.parser.outputs.VERSION }}` |
-            | **Reconstructed Classes** | `${{ steps.parser.outputs.CLASS_COUNT }}` |
-            | **Manifest Output Size** | `${{ steps.parser.outputs.FILE_SIZE }}` |
-            | **Processing Mode** | Pure Structural Symbol Evaluation |
-
-            ### Content Overview
-            The provided document filters out hexadecimal variables and offset properties. It maps framework components, classes, and exposed system routines from the runtime target via explicit signature extraction.
-          files: |
-            ${{ steps.parser.outputs.OUTPUT_FILE }}
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          echo "// Generated: $(date -u) UTC" >> $OUTPUT_FILE
-          echo "#pragma once" >> $OUTPUT_FILE
-          echo "" >> $OUTPUT_FILE
-
-          # 4. Extract Object Classes & Function Labels
-          # Using strings utility to gather cleartext internal metadata, sorting out numerical data blocks
-          echo "Parsing native symbol metadata..."
-          strings RobloxStudioBeta.exe | grep -E '^([A-Za-z0-9_]+::[A-Za-z0-9_]+)' | sort -u > raw_symbols.txt || true
-
-          # 5. Build structured mock C++ interfaces 
-          echo "Mapping internal object trees..."
-          
-          # Isolate fundamental instance behaviors
-          echo "namespace RBX {" >> $OUTPUT_FILE
-          echo "    // Core Framework Engine Interfaces" >> $OUTPUT_FILE
-          grep '^RBX::' raw_symbols.txt | sed 's/RBX:://g' | awk -F'::' '{print $1}' | sort -u | while read -r class_name; do
-              if [[ ! -z "$class_name" && "$class_name" =~ ^[A-Za-z0-9_]+$ ]]; then
-                  echo "    class $class_name {" >> $OUTPUT_FILE
-                  echo "    public:" >> $OUTPUT_FILE
-                  # Nest discovered functional signatures inside respective mock definitions
-                  grep "RBX::${class_name}::" raw_symbols.txt | awk -F'::' '{print $3}' | grep -E '^[A-Za-z0-9_]+$' | sort -u | while read -r method; do
-                      echo "        void ${method}();" >> $OUTPUT_FILE
-                  done
-                  echo "    };" >> $OUTPUT_FILE
-                  echo "" >> $OUTPUT_FILE
-              fi
-          done
-          echo "}" >> $OUTPUT_FILE
-
-          # 6. Capture structural health properties
-          CLASS_COUNT=$(grep -c 'class ' $OUTPUT_FILE || echo "0")
-          FILE_SIZE=$(du -sh "$OUTPUT_FILE" | cut -f1)
-
-          echo "VERSION=$LIVE_HASH" >> $GITHUB_OUTPUT
-          echo "CLASS_COUNT=$CLASS_COUNT" >> $GITHUB_OUTPUT
-          echo "FILE_SIZE=$FILE_SIZE" >> $GITHUB_OUTPUT
-          echo "OUTPUT_FILE=$OUTPUT_FILE" >> $GITHUB_OUTPUT
-
-      - name: Purge Duplicate Tags
-        run: |
-          gh release delete "cpp-layout-${{ steps.parser.outputs.VERSION }}" --yes 2>/dev/null || true
-          git push --delete origin "cpp-layout-${{ steps.parser.outputs.VERSION }}" 2>/dev/null || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish C++ Structure Map
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "cpp-layout-${{ steps.parser.outputs.VERSION }}"
-          name: "Roblox C++ Native Layout — ${{ steps.parser.outputs.VERSION }}"
-          body: |
-            ## Native Structural Compilation Layout
-
-            | Manifest Property | Value |
-            |-------------------|-------|
-            | **Engine Target Hash** | `${{ steps.parser.outputs.VERSION }}` |
-            | **Reconstructed Classes** | `${{ steps.parser.outputs.CLASS_COUNT }}` |
-            | **Manifest Output Size** | `${{ steps.parser.outputs.FILE_SIZE }}` |
-            | **Processing Mode** | Pure Structural Symbol Evaluation |
-
-            ### Content Overview
-            The provided document filters out hexadecimal variables and offset properties. It parses framework components, classes, and exposed system routines from the runtime target via explicit signature extraction.
           files: |
             ${{ steps.parser.outputs.OUTPUT_FILE }}
           draft: false
